@@ -47,6 +47,17 @@ export default tseslint.config(
     },
   },
   {
+    // Scripts utilitarios em JavaScript puro ficam fora do programa do
+    // TypeScript, entao as regras que dependem de tipo nao tem o que analisar.
+    files: ['**/*.js', '**/*.cjs', '**/*.mjs'],
+    ...tseslint.configs.disableTypeChecked,
+    rules: {
+      ...tseslint.configs.disableTypeChecked.rules,
+      // O projeto e CommonJS: `require` e a forma correta nestes scripts.
+      '@typescript-eslint/no-require-imports': 'off',
+    },
+  },
+  {
     // Testes lidam com `any` por natureza: o corpo de resposta do supertest e
     // os mocks do jest nao sao tipados. Exigir seguranca de tipo aqui geraria
     // ruido sem ganho - o que importa nos testes e a asserção.

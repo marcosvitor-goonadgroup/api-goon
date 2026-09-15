@@ -110,7 +110,20 @@
       "Bash(sed -n '/async search\\(/,/^  }/p' src/integrations/connectors/uol-ads/uol-ads.connector.ts)",
       "Bash(sed -n '/supports\\(/,/^  }/p' src/integrations/connectors/uol-ads/uol-ads.connector.ts)",
       "Bash(perl -0pi -e ' *)",
-      "Bash(perl -0pi -e \"s/q: '  01001000  ', capability: 'cep', filters: \\\\{ uf: 'SP' \\\\}/q: '  115912  ', capability: 'ad-campaign', filters: { uf: 'SP' }/; s/term: '01001000',\\\\n          capability: 'cep',/term: '115912',\\\\n          capability: 'ad-campaign',/\" src/modules/search/search.service.spec.ts)"
+      "Bash(perl -0pi -e \"s/q: '  01001000  ', capability: 'cep', filters: \\\\{ uf: 'SP' \\\\}/q: '  115912  ', capability: 'ad-campaign', filters: { uf: 'SP' }/; s/term: '01001000',\\\\n          capability: 'cep',/term: '115912',\\\\n          capability: 'ad-campaign',/\" src/modules/search/search.service.spec.ts)",
+      "Bash(PORT=3370 LOG_LEVEL=fatal timeout 25 node --no-experimental-require-module dist/main.js)",
+      "Bash(PORT=3372 LOG_LEVEL=warn node --no-experimental-require-module dist/main.js)",
+      "Bash(curl -s --max-time 25 \"http://localhost:3372/docs\")",
+      "Bash(curl -s -o /dev/null -w '%{content_type}' --max-time 25 http://localhost:3372/docs)",
+      "Bash(echo \"content-type: $\\(curl -s -o /dev/null -w '%{content_type}' --max-time 25 http://localhost:3372/docs\\)\")",
+      "Bash(cp src/bootstrap/swagger.setup.ts /tmp/swagger.bak)",
+      "Bash(perl -0pi -e \"s|import type \\\\{ AppConfigService \\\\}|import { apiReference } from '\\\\@scalar/nestjs-api-reference';\\\\nimport type { AppConfigService }|\" src/bootstrap/swagger.setup.ts)",
+      "Bash(perl -0pi -e \"s|const page = scalarHtml\\\\\\(.*?\\\\n.*?res\\\\.type\\\\\\('text/html'\\\\\\)\\\\.send\\\\\\(page\\\\\\);\\\\n \\\\}\\\\\\);|app.getHttpAdapter\\(\\).get\\(\\\\`/\\\\${docsPath}\\\\`, apiReference\\({ url: \\\\`/\\\\${jsonPath}\\\\`, title: 'x' }\\)\\);|s\" src/bootstrap/swagger.setup.ts)",
+      "Bash(npm run *)",
+      "Bash(echo \"EXIT CODE REAL = $?\")",
+      "Bash(cp /tmp/swagger.bak src/bootstrap/swagger.setup.ts)",
+      "Bash(npm uninstall *)",
+      "Bash(echo \"exit=$? \\(0 = limpo\\)\")"
     ]
   }
 }

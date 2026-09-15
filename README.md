@@ -478,8 +478,25 @@ NestJS na Vercel roda sobre [Fluid compute](https://vercel.com/docs/fluid-comput
   "functions": { "src/main.ts": { "maxDuration": 30 } }
   ```
 
+### Dependências ESM quebram a função inteira
+
+O runtime da Vercel **não permite** que um pacote CommonJS carregue um pacote ESM via `require()`. O Node local, a partir da versão 22.12, permite — então uma dependência nessa situação passa em todos os testes e só falha em produção, com `ERR_REQUIRE_ESM` no boot. E como o erro acontece antes de a aplicação subir, **toda a API responde 500**, não apenas a rota que usava o pacote.
+
+Foi o que derrubou o primeiro deploy: o `@scalar/nestjs-api-reference` é CommonJS e importa um pacote ESM. A documentação passou a ser servida por CDN, sem dependência de runtime.
+
+Antes de cada deploy, ou ao adicionar qualquer dependência:
+
+```bash
+npm run build && npm run check:serverless
+```
+
+O [script](scripts/check-serverless-boot.js) sobe a aplicação com `--no-experimental-require-module`, que impõe exatamente a mesma restrição do runtime da Vercel, e testa as rotas principais. Falha local, em segundos, em vez de falhar em produção.
+
+Quando um pacote for incompatível, as saídas são: trocar por um equivalente, carregá-lo com `import()` dinâmico, ou servir o recurso por CDN — foi o caminho adotado para o Swagger UI e o Scalar.
+
 ### Antes de expor em produção
 
+- [ ] **`npm run check:serverless`** passando.
 - [ ] **`API_KEYS`** preenchido — sem isso a API fica aberta (a aplicação avisa no boot).
 - [ ] **`CORS_ORIGINS`** com os domínios reais, não `*`.
 - [ ] **`NODE_ENV=production`** — muda o log para JSON e esconde detalhe interno de erro 5xx.

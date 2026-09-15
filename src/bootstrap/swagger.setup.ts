@@ -1,11 +1,43 @@
 import type { INestApplication } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule, type OpenAPIObject } from '@nestjs/swagger';
-import { apiReference } from '@scalar/nestjs-api-reference';
 
 import type { AppConfigService } from '../config/app-config.service';
 
 /** Versao do swagger-ui servida por CDN (ver nota abaixo sobre serverless). */
 const SWAGGER_UI_CDN = 'https://cdn.jsdelivr.net/npm/swagger-ui-dist@5';
+
+/** Scalar em modo standalone, tambem por CDN (ver nota abaixo). */
+const SCALAR_CDN = 'https://cdn.jsdelivr.net/npm/@scalar/api-reference';
+
+/** Neutraliza aspas e sinais de tag ao interpolar valores no HTML. */
+const escapeHtml = (value: string): string =>
+  value.replace(
+    /[&<>"']/g,
+    (char) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] ?? char,
+  );
+
+/**
+ * Pagina do Scalar montada a mao.
+ *
+ * O pacote `@scalar/nestjs-api-reference` seria mais direto, mas ele e CommonJS
+ * e faz `require()` de uma dependencia que so existe como ESM. O Node local
+ * tolera isso; o runtime da Vercel nao, e a funcao inteira morria no boot com
+ * `ERR_REQUIRE_ESM` - derrubando a API toda, nao apenas a documentacao.
+ * Servindo o HTML direto do CDN nao ha dependencia de runtime para quebrar.
+ */
+const scalarHtml = (specUrl: string, title: string): string => `<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${escapeHtml(title)}</title>
+  </head>
+  <body>
+    <script id="api-reference" data-url="${escapeHtml(specUrl)}"></script>
+    <script src="${SCALAR_CDN}"></script>
+  </body>
+</html>`;
 
 const DESCRIPTION = `
 API de **busca e integracao de dados**.
@@ -38,6 +70,12 @@ que cada sistema retornou.
 Quando \`API_KEYS\` esta configurado, envie a chave no header \`x-api-key\`
 (ou como \`Authorization: Bearer <chave>\`). As rotas de health sao publicas.
 `;
+
+/** O minimo da resposta do Express que a rota da documentacao usa. */
+interface DocsResponse {
+  type(contentType: string): DocsResponse;
+  send(body: string): unknown;
+}
 
 /**
  * Publica a documentacao em dois formatos:
@@ -113,13 +151,10 @@ export function setupSwagger(
   });
 
   // Rota exata (e nao `app.use`), para nao capturar `/docs/swagger` por prefixo.
-  app.getHttpAdapter().get(
-    `/${docsPath}`,
-    apiReference({
-      url: `/${jsonPath}`,
-      title: 'api-goon | Referencia da API',
-    }),
-  );
+  const page = scalarHtml(`/${jsonPath}`, 'api-goon | Referencia da API');
+  app.getHttpAdapter().get(`/${docsPath}`, (_req: unknown, res: DocsResponse) => {
+    res.type('text/html').send(page);
+  });
 
   return document;
 }
