@@ -12,6 +12,7 @@ import {
   type ReportLayoutValue,
 } from '../../../integrations/connectors/uol-ads/uol-ads.model';
 import { UOL_REGIONS } from '../../../integrations/connectors/uol-ads/uol-ads.types';
+import { resolveRelativeDate } from '../../../common/utils/relative-date';
 
 const STATUS_VALUES = Object.values(CampaignStatus);
 const BREAKDOWN_VALUES = Object.values(ReportBreakdown);
@@ -19,6 +20,17 @@ const LAYOUT_VALUES = Object.values(ReportLayout);
 
 /** Formato exigido pela origem: yyyy-MM-dd. */
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+const RELATIVE_DATE_HINT =
+  'Aceita tambem os atalhos `today`/`hoje`, `yesterday`/`ontem` e `D-n` (ex.: `D-7` = sete dias atras), ' +
+  'resolvidos no fuso America/Sao_Paulo - uteis para agendar a mesma URL todo dia. ' +
+  'O campo `period` da resposta mostra as datas ja resolvidas.';
+
+/**
+ * Traduz os atalhos antes da validacao de formato, de modo que o `@Matches`
+ * continue sendo a unica regra sobre o formato final.
+ */
+const toReportDate = ({ value }: { value: unknown }): unknown => resolveRelativeDate(value);
 
 /** `?regions=SP,RJ` ou `?regions=SP&regions=RJ` -> ['SP','RJ'] em maiusculas. */
 const toUpperArray = ({ value }: { value: unknown }): string[] | undefined => {
@@ -70,17 +82,23 @@ export class ListCampaignsQueryDto extends PaginationQueryDto {
 
 export class CampaignReportQueryDto extends PaginationQueryDto {
   @ApiProperty({
-    description: 'Inicio do periodo (yyyy-MM-dd).',
+    description: `Inicio do periodo (yyyy-MM-dd). ${RELATIVE_DATE_HINT}`,
     example: '2026-08-01',
   })
-  @Matches(DATE_PATTERN, { message: 'startDate deve estar no formato yyyy-MM-dd' })
+  @Transform(toReportDate)
+  @Matches(DATE_PATTERN, {
+    message: 'startDate deve ser uma data yyyy-MM-dd ou um atalho (today, yesterday, D-7)',
+  })
   startDate: string;
 
   @ApiProperty({
-    description: 'Fim do periodo (yyyy-MM-dd). Deve ser igual ou posterior a startDate.',
+    description: `Fim do periodo (yyyy-MM-dd). Deve ser igual ou posterior a startDate. ${RELATIVE_DATE_HINT}`,
     example: '2026-08-31',
   })
-  @Matches(DATE_PATTERN, { message: 'endDate deve estar no formato yyyy-MM-dd' })
+  @Transform(toReportDate)
+  @Matches(DATE_PATTERN, {
+    message: 'endDate deve ser uma data yyyy-MM-dd ou um atalho (today, yesterday, D-7)',
+  })
   endDate: string;
 
   @ApiPropertyOptional({

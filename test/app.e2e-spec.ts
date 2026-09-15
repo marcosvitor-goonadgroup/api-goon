@@ -382,6 +382,40 @@ describe('api-goon (e2e)', () => {
       expect(body.error.details.issues.join(' ')).toContain('startDate');
     });
 
+    it('resolve atalhos de data relativa e informa o periodo aplicado', async () => {
+      http.get.mockResolvedValue([REPORT_ROW]);
+
+      const { body } = await request(app.getHttpServer())
+        .get('/api/v1/ads/uol/campaigns/115912/report')
+        .query({ startDate: 'D-1', endDate: 'yesterday' })
+        .expect(200);
+
+      // Uma rotina agendada usa a mesma URL todo dia; a resposta precisa dizer
+      // que periodo foi de fato consultado.
+      const ontem = new Date(Date.now() - 86_400_000);
+      const esperado = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Sao_Paulo',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(ontem);
+
+      expect(body.data.period).toEqual({ startDate: esperado, endDate: esperado });
+
+      const params = http.get.mock.calls.at(-1)[0].params as Record<string, unknown>;
+      expect(params.startDate).toBe(esperado);
+      expect(params.endDate).toBe(esperado);
+    });
+
+    it('recusa um atalho que nao existe, em vez de assumir uma data', async () => {
+      const { body } = await request(app.getHttpServer())
+        .get('/api/v1/ads/uol/campaigns/115912/report')
+        .query({ startDate: 'semana-passada', endDate: 'today' })
+        .expect(400);
+
+      expect(body.error.details.issues.join(' ')).toContain('startDate');
+    });
+
     it('rejeita periodo invertido antes de chamar a origem', async () => {
       http.get.mockClear();
 

@@ -107,7 +107,39 @@ Toda resposta traz `statusSummary` com a contagem por estado **da conta inteira*
 | `layout` | `nested` (padrão) agrupa as métricas; `flat` devolve colunas fixas |
 | `regions` | UFs a incluir (`SP,RJ`) ou `BR`. Exige `breakdown=region` |
 | `groupIds` | Restringe a conjuntos de anúncios específicos |
-| `page` / `limit` | Paginação — a plataforma não pagina, nós sim |
+| `page` / `limit` | Paginação — **limit padrão 20, máximo 100** |
+
+#### A resposta é paginada
+
+O relatório vem paginado, então `rows` traz no máximo `limit` linhas — é por isso que campanhas diferentes parecem devolver "o mesmo tamanho". O total real está em `pagination.total`:
+
+```json
+"pagination": { "page": 1, "limit": 20, "total": 1472, "totalPages": 74, "hasNextPage": true }
+```
+
+Um período de 45 dias com vários criativos passa de mil linhas facilmente, porque cada linha é uma combinação de data × conjunto × criativo. Para varrer tudo, use `limit=100` e percorra as páginas até `hasNextPage: false`.
+
+Os `totals` **não** são afetados pela paginação: cobrem o período inteiro em qualquer página.
+
+#### Datas relativas para consultas agendadas
+
+`startDate` e `endDate` aceitam atalhos, para que uma rotina diária use sempre a mesma URL:
+
+| Atalho | Significado |
+| --- | --- |
+| `today` / `hoje` | O dia corrente |
+| `yesterday` / `ontem` | O dia anterior |
+| `D-n` | `n` dias atrás (`D-7`, `D-30`) |
+
+```bash
+# o dia de ontem, todo dia
+.../report?startDate=yesterday&endDate=yesterday
+
+# janela móvel dos últimos 7 dias fechados
+.../report?startDate=D-7&endDate=yesterday
+```
+
+Os atalhos são resolvidos no fuso **America/Sao_Paulo**, não no do servidor. Isso importa: a Vercel roda em UTC, onde a partir das 21h no horário de Brasília já é o dia seguinte — uma rotina noturna pediria o dia errado. O campo `period` da resposta sempre mostra as datas já resolvidas, então dá para conferir o que foi consultado.
 
 Com `layout=flat` cada linha é um objeto plano de colunas fixas — **toda coluna existe sempre**, e o que a plataforma não mediu vem `null`. É o formato para planilha, BI ou carga em banco, onde uma coluna que some quebra o consumidor:
 
