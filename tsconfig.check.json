@@ -1,0 +1,12 @@
+{
+  // Verificacao de tipos de TODO o repositorio - inclui testes e scripts, que
+  // ficam fora do build. Nunca emite: existe apenas para `npm run typecheck`,
+  // e por isso nao interfere no layout de `dist/`.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": "."
+  },
+  "include": ["src/**/*", "test/**/*", "scripts/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

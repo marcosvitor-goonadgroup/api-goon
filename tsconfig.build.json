@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // Variavel nao usada e assunto do lint, nao motivo para derrubar o build.
+    "noUnusedLocals": false,
+    "noUnusedParameters": false
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "test", "scripts", "**/*.spec.ts", "**/*.e2e-spec.ts"]
+}

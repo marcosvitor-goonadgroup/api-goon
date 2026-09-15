@@ -1,0 +1,49 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "declaration": true,
+    "removeComments": false,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "sourceMap": true,
+
+    // `outDir` + `rootDir` juntos garantem que o entrypoint saia em
+    // `dist/main.js` - que e o caminho que `nest start` executa.
+    "outDir": "./dist",
+    "rootDir": "./src",
+
+    // `incremental` fica desligado de proposito: combinado com o
+    // `deleteOutDir` do nest-cli, um `.tsbuildinfo` sobrevivente convence o
+    // compilador de que ja emitiu tudo, e o build "passa" sem gerar `dist/`.
+    "incremental": false,
+
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+
+    "strict": true,
+    "strictPropertyInitialization": false,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictBindCallApply": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noImplicitOverride": true,
+    "exactOptionalPropertyTypes": false
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"],
+
+  // Faz o ts-node carregar os arquivos de `include` - sem isso as declaracoes
+  // globais de `src/types/*.d.ts` ficam de fora e a compilacao falha.
+  "ts-node": {
+    "files": true
+  }
+}
