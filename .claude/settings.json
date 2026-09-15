@@ -123,7 +123,13 @@
       "Bash(echo \"EXIT CODE REAL = $?\")",
       "Bash(cp /tmp/swagger.bak src/bootstrap/swagger.setup.ts)",
       "Bash(npm uninstall *)",
-      "Bash(echo \"exit=$? \\(0 = limpo\\)\")"
+      "Bash(echo \"exit=$? \\(0 = limpo\\)\")",
+      "Bash(xargs grep -ln \"pino-pretty\")",
+      "Bash(cp src/core/logger/logger.module.ts /tmp/logger.bak)",
+      "Bash(perl -0pi -e \"s/if \\\\\\(!isDevelopment \\\\|\\\\| !isInstalled\\\\\\('pino-pretty'\\\\\\)\\\\\\) \\\\{/if \\(!isDevelopment\\) {/\" src/core/logger/logger.module.ts)",
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(cp /tmp/logger.bak src/core/logger/logger.module.ts)",
+      "Bash(mv node_modules/.pino-pretty-oculto node_modules/pino-pretty)"
     ]
   }
 }

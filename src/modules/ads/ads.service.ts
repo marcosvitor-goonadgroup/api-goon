@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 
 import { ErrorCode } from '../../common/constants';
 import { buildPaginationMeta } from '../../common/dto/pagination.dto';
@@ -22,6 +27,8 @@ export class AdsService {
   constructor(private readonly uolAds: UolAdsConnector) {}
 
   async listCampaigns(query: ListCampaignsQueryDto): Promise<CampaignListDto> {
+    this.assertConnectorReady();
+
     const { campaigns, statusSummary, totalAvailable } = await this.uolAds.listCampaigns({
       status: query.status,
       search: query.search,
@@ -38,6 +45,8 @@ export class AdsService {
   }
 
   async getCampaign(id: number) {
+    this.assertConnectorReady();
+
     const campaign = await this.uolAds.getCampaign(id);
 
     if (!campaign) {
@@ -54,6 +63,7 @@ export class AdsService {
     campaignId: number,
     query: CampaignReportQueryDto,
   ): Promise<CampaignReportDto> {
+    this.assertConnectorReady();
     this.assertPeriod(query.startDate, query.endDate);
     this.assertRegionsUsage(query);
 
@@ -86,6 +96,27 @@ export class AdsService {
       pagination: buildPaginationMeta(report.rows.length, query.page, query.limit),
       totals: report.totals,
     };
+  }
+
+  /**
+   * Recusa a chamada quando o conector esta sem credencial.
+   *
+   * Sem isto a requisicao seguia para a origem e voltava um 401 dela, que
+   * culpa a plataforma por um problema que e de configuracao nossa. A busca
+   * federada ja pulava o conector desabilitado; estas rotas, por falarem com
+   * ele diretamente, precisam da propria checagem.
+   */
+  private assertConnectorReady(): void {
+    if (this.uolAds.isEnabled()) {
+      return;
+    }
+
+    throw new ServiceUnavailableException({
+      code: ErrorCode.INTEGRATION_UNAVAILABLE,
+      message:
+        'A integracao com o UOL Ads nao esta configurada. Defina UOL_ADS_KEY no ambiente (na Vercel: Settings > Environment Variables) e faca um novo deploy.',
+      source: 'uol-ads',
+    });
   }
 
   /**

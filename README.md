@@ -494,6 +494,21 @@ O [script](scripts/check-serverless-boot.js) sobe a aplicação com `--no-experi
 
 Quando um pacote for incompatível, as saídas são: trocar por um equivalente, carregá-lo com `import()` dinâmico, ou servir o recurso por CDN — foi o caminho adotado para o Swagger UI e o Scalar.
 
+O check roda dois cenários: **produção configurada** e **sem nenhuma variável cadastrada**. O segundo existe porque um projeto recém-publicado na Vercel está exatamente nesse estado, e a aplicação precisa subir mesmo assim — ainda que degradada. Foi o que pegou a segunda falha de deploy: o `pino-pretty` é devDependency carregada por nome, invisível para o rastreamento de arquivos da Vercel, e um ambiente sem `NODE_ENV=production` pedia esse transport e derrubava tudo no boot.
+
+### Cadastre as variáveis antes do primeiro acesso
+
+Sem variáveis, a API **sobe**, mas com o UOL Ads desligado — `/api/v1/ads/uol/*` responde `503 INTEGRATION_UNAVAILABLE` dizendo qual variável falta. Em Settings → Environment Variables, no mínimo:
+
+| Variável | Por quê |
+| --- | --- |
+| `UOL_ADS_KEY` | Sem ela a integração fica desabilitada e as rotas de mídia não respondem |
+| `NODE_ENV=production` | Log em JSON e detalhe interno de erro 5xx oculto |
+| `API_KEYS` | Sem ela a API fica pública (a aplicação avisa no boot) |
+| `CORS_ORIGINS` | Os domínios reais, não `*` |
+
+Depois de cadastrar, **refaça o deploy** — variáveis de ambiente só entram em vigor em um novo build.
+
 ### Antes de expor em produção
 
 - [ ] **`npm run check:serverless`** passando.
