@@ -129,7 +129,11 @@
       "Bash(perl -0pi -e \"s/if \\\\\\(!isDevelopment \\\\|\\\\| !isInstalled\\\\\\('pino-pretty'\\\\\\)\\\\\\) \\\\{/if \\(!isDevelopment\\) {/\" src/core/logger/logger.module.ts)",
       "Bash(echo \"EXIT=$?\")",
       "Bash(cp /tmp/logger.bak src/core/logger/logger.module.ts)",
-      "Bash(mv node_modules/.pino-pretty-oculto node_modules/pino-pretty)"
+      "Bash(mv node_modules/.pino-pretty-oculto node_modules/pino-pretty)",
+      "Bash(perl -0pi -e \"s/import \\\\{ ApiProperty, ApiPropertyOptional \\\\} from '\\\\@nestjs\\\\/swagger';/import { ApiProperty, ApiPropertyOptional, OmitType } from '\\\\@nestjs\\\\/swagger';/\" src/modules/ads/dto/ads-query.dto.ts)",
+      "Bash(perl -0pi -e \"s/  override limit: number = 20;/  limit: number = 20;/\" src/modules/ads/dto/ads-query.dto.ts)",
+      "Bash(perl -0pi -e \"s/import \\\\{ ServiceUnavailableException \\\\} from '\\\\@nestjs\\\\/common';/import { BadRequestException, ServiceUnavailableException } from '\\\\@nestjs\\\\/common';/\" src/modules/ads/ads.service.spec.ts)",
+      "Bash(perl -0pi -e \"s/import \\\\{ AdsService \\\\} from '.\\\\/ads.service';/import { AdsService, MAX_UNPAGINATED_ROWS } from '.\\\\/ads.service';\\\\nimport { ALL_ROWS } from '.\\\\/dto\\\\/ads-query.dto';/\" src/modules/ads/ads.service.spec.ts)"
     ]
   }
 }

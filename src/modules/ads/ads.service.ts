@@ -13,7 +13,20 @@ import {
   ReportBreakdown,
   ReportLayout,
 } from '../../integrations/connectors/uol-ads/uol-ads.model';
+import { ALL_ROWS } from './dto/ads-query.dto';
 import type { CampaignReportQueryDto, ListCampaignsQueryDto } from './dto/ads-query.dto';
+
+/**
+ * Teto para `limit=all`.
+ *
+ * A resposta de uma Vercel Function nao pode passar de 4,5 MB - acima disso a
+ * plataforma devolve 500 sem que a aplicacao consiga tratar. Uma linha do
+ * relatorio ocupa cerca de 490 bytes, entao 5000 linhas ficam em torno de
+ * 2,4 MB: folgado o bastante para praticamente todo periodo, e longe do limite.
+ * Acima disso preferimos um erro explicativo a uma resposta truncada em
+ * silencio, que produziria um relatorio errado sem ninguem perceber.
+ */
+export const MAX_UNPAGINATED_ROWS = 5000;
 import type { CampaignListDto, CampaignReportDto } from './dto/ads-response.dto';
 
 /**
@@ -75,8 +88,20 @@ export class AdsService {
       groupIds: query.groupIds,
     });
 
-    const start = (query.page - 1) * query.limit;
-    const page = report.rows.slice(start, start + query.limit);
+    const fetchAll = query.limit === ALL_ROWS;
+
+    if (fetchAll && report.rows.length > MAX_UNPAGINATED_ROWS) {
+      throw new BadRequestException({
+        code: ErrorCode.VALIDATION_ERROR,
+        message:
+          `O periodo tem ${report.rows.length} linhas, acima do maximo de ${MAX_UNPAGINATED_ROWS} para uma resposta unica. ` +
+          'Reduza o periodo, filtre por `groupIds`, ou pagine com `limit=100`.',
+        details: { rows: report.rows.length, maxRows: MAX_UNPAGINATED_ROWS },
+      });
+    }
+
+    const start = fetchAll ? 0 : (query.page - 1) * query.limit;
+    const page = fetchAll ? report.rows : report.rows.slice(start, start + query.limit);
     const isRegion = report.breakdown === ReportBreakdown.REGION;
 
     return {
@@ -93,7 +118,16 @@ export class AdsService {
       unavailableFields: isRegion ? [...REGION_UNAVAILABLE_FIELDS] : [],
       rows:
         query.layout === ReportLayout.FLAT ? page.map((row) => this.uolAds.toFlatRow(row)) : page,
-      pagination: buildPaginationMeta(report.rows.length, query.page, query.limit),
+      pagination: fetchAll
+        ? {
+            page: 1,
+            limit: report.rows.length,
+            total: report.rows.length,
+            totalPages: 1,
+            hasNextPage: false,
+            hasPreviousPage: false,
+          }
+        : buildPaginationMeta(report.rows.length, query.page, query.limit),
       totals: report.totals,
     };
   }

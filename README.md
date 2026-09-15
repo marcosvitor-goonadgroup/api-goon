@@ -109,15 +109,25 @@ Toda resposta traz `statusSummary` com a contagem por estado **da conta inteira*
 | `groupIds` | Restringe a conjuntos de anúncios específicos |
 | `page` / `limit` | Paginação — **limit padrão 20, máximo 100** |
 
-#### A resposta é paginada
+#### A resposta é paginada — e `limit=all` traz tudo
 
-O relatório vem paginado, então `rows` traz no máximo `limit` linhas — é por isso que campanhas diferentes parecem devolver "o mesmo tamanho". O total real está em `pagination.total`:
+Por padrão `rows` traz no máximo 20 linhas, e é por isso que campanhas diferentes parecem devolver "o mesmo tamanho". O total real está em `pagination.total`:
 
 ```json
 "pagination": { "page": 1, "limit": 20, "total": 1472, "totalPages": 74, "hasNextPage": true }
 ```
 
-Um período de 45 dias com vários criativos passa de mil linhas facilmente, porque cada linha é uma combinação de data × conjunto × criativo. Para varrer tudo, use `limit=100` e percorra as páginas até `hasNextPage: false`.
+Um período de 45 dias com vários criativos passa de mil linhas facilmente, porque cada linha é uma combinação de data × conjunto × criativo.
+
+Para trazer o período inteiro numa resposta só:
+
+```bash
+.../report?startDate=2026-08-01&endDate=2026-09-15&layout=flat&limit=all
+```
+
+**`limit=all` é mais eficiente que paginar.** A plataforma do UOL não pagina: o conector já busca o período inteiro em uma única chamada, e a paginação apenas recorta o resultado. Percorrer 15 páginas repete essa mesma consulta externa 15 vezes; `limit=all` resolve em uma.
+
+O teto é de **5000 linhas** por resposta. Não é arbitrário: a Vercel corta respostas de função acima de [4,5 MB](https://vercel.com/docs/functions/limitations) com um 500 que a aplicação não consegue tratar, e uma linha ocupa cerca de 490 bytes. Acima do teto a API devolve 400 explicando — em vez de truncar em silêncio e produzir um relatório errado sem ninguém perceber. Nesse caso, reduza o período, filtre por `groupIds`, ou pagine com `limit=100`.
 
 Os `totals` **não** são afetados pela paginação: cobrem o período inteiro em qualquer página.
 

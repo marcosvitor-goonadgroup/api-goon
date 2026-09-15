@@ -407,6 +407,23 @@ describe('api-goon (e2e)', () => {
       expect(params.endDate).toBe(esperado);
     });
 
+    it('traz todas as linhas com limit=all, sem paginar', async () => {
+      const muitasLinhas = Array.from({ length: 150 }, (_, i) => ({
+        ...REPORT_ROW,
+        date: `2026-08-${String((i % 28) + 1).padStart(2, '0')}`,
+      }));
+      http.get.mockResolvedValue(muitasLinhas);
+
+      const { body } = await request(app.getHttpServer())
+        .get('/api/v1/ads/uol/campaigns/115912/report')
+        .query({ startDate: '2026-08-01', endDate: '2026-08-31', limit: 'all' })
+        .expect(200);
+
+      // Acima do teto de 100 por pagina, provando que `all` nao e so um limit alto.
+      expect(body.data.rows).toHaveLength(150);
+      expect(body.data.pagination).toMatchObject({ total: 150, totalPages: 1, hasNextPage: false });
+    });
+
     it('recusa um atalho que nao existe, em vez de assumir uma data', async () => {
       const { body } = await request(app.getHttpServer())
         .get('/api/v1/ads/uol/campaigns/115912/report')

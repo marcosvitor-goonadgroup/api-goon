@@ -1,6 +1,16 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, OmitType } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsArray, IsIn, IsOptional, IsString, Matches, MaxLength } from 'class-validator';
+import {
+  IsArray,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Matches,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 
 import { PaginationQueryDto } from '../../../common/dto/pagination.dto';
 import {
@@ -31,6 +41,31 @@ const RELATIVE_DATE_HINT =
  * continue sendo a unica regra sobre o formato final.
  */
 const toReportDate = ({ value }: { value: unknown }): unknown => resolveRelativeDate(value);
+
+/**
+ * `limit=all` (ou `0`) desliga a paginacao.
+ *
+ * Faz sentido aqui porque a origem nao pagina: o conector ja traz o periodo
+ * inteiro numa unica chamada e a paginacao apenas recorta o resultado. Pedir
+ * pagina por pagina repete a mesma consulta externa varias vezes, enquanto
+ * `limit=all` resolve tudo em uma.
+ */
+export const ALL_ROWS = 0;
+
+/**
+ * Faz a conversao numerica aqui, e nao via `@Type(() => Number)`: o `@Type`
+ * roda antes e transformaria `all` em `NaN`, que nunca chegaria a este ponto.
+ */
+const toReportLimit = ({ value }: { value: unknown }): unknown => {
+  if (typeof value === 'string') {
+    const token = value.trim().toLowerCase();
+    if (['all', 'todas', 'tudo'].includes(token)) {
+      return ALL_ROWS;
+    }
+    return token === '' ? undefined : Number(token);
+  }
+  return value;
+};
 
 /** `?regions=SP,RJ` ou `?regions=SP&regions=RJ` -> ['SP','RJ'] em maiusculas. */
 const toUpperArray = ({ value }: { value: unknown }): string[] | undefined => {
@@ -80,7 +115,12 @@ export class ListCampaignsQueryDto extends PaginationQueryDto {
   search?: string;
 }
 
-export class CampaignReportQueryDto extends PaginationQueryDto {
+/**
+ * `OmitType` remove o `limit` herdado junto com os metadados de validacao dele.
+ * Sem isso, o `@Type(() => Number)` da classe base rodaria primeiro e
+ * transformaria `all` em `NaN` antes de o transform proprio ser consultado.
+ */
+export class CampaignReportQueryDto extends OmitType(PaginationQueryDto, ['limit'] as const) {
   @ApiProperty({
     description: `Inicio do periodo (yyyy-MM-dd). ${RELATIVE_DATE_HINT}`,
     example: '2026-08-01',
@@ -149,4 +189,28 @@ export class CampaignReportQueryDto extends PaginationQueryDto {
     message: `layout deve ser um de: ${LAYOUT_VALUES.join(', ')}`,
   })
   layout: ReportLayoutValue = ReportLayout.NESTED;
+
+  /**
+   * Redefine o `limit` herdado para aceitar `all`.
+   *
+   * O teto de 100 por pagina continua valendo quando se pagina; `all` e a via
+   * explicita para trazer o periodo inteiro de uma vez, limitada por
+   * `MAX_UNPAGINATED_ROWS` para nao estourar o tamanho de resposta da Vercel.
+   */
+  @ApiPropertyOptional({
+    description:
+      'Linhas por pagina (1 a 100), ou `all` para trazer todas de uma vez. Como a plataforma nao pagina, `all` custa uma unica consulta a origem - e mais eficiente que percorrer paginas.',
+    default: 20,
+    example: 'all',
+    oneOf: [
+      { type: 'integer', minimum: 1, maximum: 100 },
+      { type: 'string', enum: ['all'] },
+    ],
+  })
+  @IsOptional()
+  @Transform(toReportLimit)
+  @IsInt({ message: 'limit deve ser um numero inteiro ou `all`' })
+  @Min(ALL_ROWS, { message: 'limit deve ser maior ou igual a 1, ou `all`' })
+  @Max(100, { message: 'limit deve ser menor ou igual a 100, ou `all` para trazer todas' })
+  limit: number = 20;
 }

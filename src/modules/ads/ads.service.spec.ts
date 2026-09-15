@@ -1,8 +1,9 @@
-import { ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, ServiceUnavailableException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 
 import { UolAdsConnector } from '../../integrations/connectors/uol-ads/uol-ads.connector';
-import { AdsService } from './ads.service';
+import { AdsService, MAX_UNPAGINATED_ROWS } from './ads.service';
+import { ALL_ROWS } from './dto/ads-query.dto';
 import type { CampaignReportQueryDto, ListCampaignsQueryDto } from './dto/ads-query.dto';
 
 describe('AdsService', () => {
@@ -93,6 +94,86 @@ describe('AdsService', () => {
     it('permite o relatorio', async () => {
       await service.getCampaignReport(1, reportQuery);
       expect(connector.getCampaignReport).toHaveBeenCalled();
+    });
+  });
+
+  describe('limit=all', () => {
+    const linhas = (quantidade: number) =>
+      Array.from({ length: quantidade }, (_, i) => ({
+        date: `2026-08-${String((i % 28) + 1).padStart(2, '0')}`,
+        campaignName: 'c',
+        groupName: 'g',
+        creativeName: 'cr',
+        region: null,
+        format: 'IMAGE',
+        metrics: { impressions: 1, clicks: 0, cost: 0, ctr: 0, cpc: 0, cpm: 0 },
+      }));
+
+    const comLinhas = async (quantidade: number) => {
+      await build(true);
+      connector.getCampaignReport.mockResolvedValue({
+        campaign: { id: 1, name: 'c' },
+        period: { startDate: '2026-08-01', endDate: '2026-08-31' },
+        breakdown: 'date',
+        creativeAvailable: true,
+        rows: linhas(quantidade),
+        totals: { impressions: quantidade, clicks: 0, cost: 0, ctr: 0, cpc: 0, cpm: 0 },
+      });
+    };
+
+    const queryAll = { ...reportQuery, limit: ALL_ROWS };
+
+    it('devolve todas as linhas numa resposta so', async () => {
+      await comLinhas(250);
+
+      const resultado = await service.getCampaignReport(1, queryAll);
+
+      expect(resultado.rows).toHaveLength(250);
+      expect(resultado.pagination).toMatchObject({
+        page: 1,
+        total: 250,
+        totalPages: 1,
+        hasNextPage: false,
+      });
+    });
+
+    it('consulta a origem uma unica vez', async () => {
+      await comLinhas(250);
+      await service.getCampaignReport(1, queryAll);
+
+      // O ganho de `all`: a origem nao pagina, entao percorrer paginas
+      // repetiria esta mesma chamada.
+      expect(connector.getCampaignReport).toHaveBeenCalledTimes(1);
+    });
+
+    it('recusa acima do teto, em vez de truncar em silencio', async () => {
+      await comLinhas(MAX_UNPAGINATED_ROWS + 1);
+
+      // Uma resposta truncada sem aviso viraria relatorio errado; o limite da
+      // Vercel (4,5 MB) tambem devolveria 500 sem explicacao util.
+      await expect(service.getCampaignReport(1, queryAll)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+    });
+
+    it('aceita exatamente o teto', async () => {
+      await comLinhas(MAX_UNPAGINATED_ROWS);
+
+      const resultado = await service.getCampaignReport(1, queryAll);
+      expect(resultado.rows).toHaveLength(MAX_UNPAGINATED_ROWS);
+    });
+
+    it('a paginacao normal segue recortando', async () => {
+      await comLinhas(250);
+
+      const resultado = await service.getCampaignReport(1, {
+        ...reportQuery,
+        page: 2,
+        limit: 100,
+      });
+
+      expect(resultado.rows).toHaveLength(100);
+      expect(resultado.pagination).toMatchObject({ page: 2, total: 250, totalPages: 3 });
     });
   });
 });
